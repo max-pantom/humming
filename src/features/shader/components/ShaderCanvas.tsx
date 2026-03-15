@@ -68,13 +68,10 @@ function sampleGradientColor(gradient: GradientConfig, t: number) {
 }
 
 function effectSignal(effect: EffectLayer, inputs: RuntimeInputs) {
-  if (effect.kind === "pulse") {
-    return (Math.sin(inputs.timeSeconds * (1.8 + effect.intensity * 3)) + 1) * 0.5;
-  }
-  if (effect.kind === "wave") {
+  if (effect.type === "animatedGradient") {
     return (Math.sin(inputs.timeSeconds * 1.3 + inputs.mouse.x * 3) + 1) * 0.5;
   }
-  if (effect.kind === "drift") {
+  if (effect.type === "warp") {
     return (Math.cos(inputs.timeSeconds * 0.7 + inputs.mouse.y * 2) + 1) * 0.5;
   }
   return effect.intensity;
@@ -95,45 +92,56 @@ function effectIntensity(effect: EffectLayer) {
 function applyEffectLayers(base: RainbowConfig, effects: EffectLayer[], inputs: RuntimeInputs): RainbowConfig {
   const next = { ...base };
 
-  for (const effect of effects) {
+  const sorted = [...effects].sort((a, b) => a.order - b.order);
+
+  for (const effect of sorted) {
     if (!effect.enabled) continue;
-    if (effectScope(effect) === "element") continue;
     const amount = effectSignal(effect, inputs) * effectIntensity(effect) * effectOpacity(effect);
 
-    if (effect.kind === "wave") {
-      next.direction += amount * 0.8;
-      next.scale += amount * 0.4;
+    const num = (key: string, fallback: number) => {
+      const value = effect.params?.[key];
+      return typeof value === "number" ? value : fallback;
+    };
+
+    if (effect.type === "animatedGradient") {
+      next.speed += num("speed", 0.35) * 0.35 * amount;
+      next.scale += num("scale", 1.2) * 0.2 * amount;
+      next.direction += (num("direction", 45) / 180) * 0.3 * amount;
+      next.glow += num("softness", 0.8) * 0.2 * amount;
       continue;
     }
-    if (effect.kind === "noise") {
-      next.noiseAmount += amount * 0.7;
-      next.grain += amount * 0.04;
+    if (effect.type === "warp") {
+      next.direction += num("frequency", 2) * 0.04 * amount;
+      next.spread += num("detail", 0.5) * 0.15 * amount;
+      next.scale += num("strength", 0.12) * 0.4 * amount;
       continue;
     }
-    if (effect.kind === "glow") {
-      next.glow += amount * 1.2;
+    if (effect.type === "grain") {
+      next.grain += num("amount", 0.08) * 0.7 * amount;
+      next.noiseAmount += num("size", 1) * 0.1 * amount;
       continue;
     }
-    if (effect.kind === "drift") {
-      next.speed += amount * 0.35;
-      next.spread += amount * 0.25;
+    if (effect.type === "bayerDither") {
+      next.grain += num("amount", 0.15) * 0.25 * amount;
+      next.noiseAmount += num("contrastBoost", 0) * 0.3 * amount;
       continue;
     }
-    if (effect.kind === "vignette") {
-      next.opacity -= amount * 0.08;
+    if (effect.type === "godRays") {
+      next.glow += num("intensity", 0.4) * 0.8 * amount;
+      next.spread += num("spread", 0.6) * 0.2 * amount;
       continue;
     }
-    if (effect.kind === "chromatic") {
-      next.direction += amount * 0.25;
-      next.glow += amount * 0.35;
-      continue;
-    }
-    if (effect.kind === "scanline") {
-      next.grain += amount * 0.03;
+    if (effect.type === "blur") {
+      next.spread += num("radius", 0.2) * 0.18 * amount;
+      next.scale -= num("radius", 0.2) * 0.08 * amount;
       continue;
     }
 
-    next.opacity += (amount - 0.5) * 0.25;
+    if (effect.type === "vignette") {
+      next.opacity -= num("amount", 0.25) * 0.14 * amount;
+      next.glow -= num("softness", 0.55) * 0.08 * amount;
+      continue;
+    }
   }
 
   next.speed = clamp(next.speed, 0, 1.4);
@@ -155,12 +163,8 @@ function cssBlend(mode: EffectLayer["blendMode"]) {
   return "normal";
 }
 
-function elementLayerStyles(effects: EffectLayer[], elementId: string) {
-  const applied = effects.filter((effect) => {
-    const scope = effectScope(effect);
-    const elementTargetId = effect.target?.elementId;
-    return effect.enabled && (scope === "scene" || (scope === "element" && elementTargetId === elementId));
-  });
+function elementLayerStyles(effects: EffectLayer[]) {
+  const applied = effects.filter((effect) => effect.enabled && effectScope(effect) === "scene");
   let blur = 0;
   let saturate = 1;
   let contrast = 1;
@@ -169,12 +173,12 @@ function elementLayerStyles(effects: EffectLayer[], elementId: string) {
 
   for (const effect of applied) {
     const amount = effectIntensity(effect) * effectOpacity(effect);
-    if (effect.kind === "glow") brightness += amount * 0.18;
-    if (effect.kind === "noise") contrast += amount * 0.12;
-    if (effect.kind === "chromatic") saturate += amount * 0.2;
-    if (effect.kind === "vignette") brightness -= amount * 0.12;
-    if (effect.kind === "drift") blur += amount * 0.4;
-    if (effect.kind === "pulse") opacity -= amount * 0.08;
+    if (effect.type === "godRays") brightness += amount * 0.22;
+    if (effect.type === "grain") contrast += amount * 0.08;
+    if (effect.type === "animatedGradient") saturate += amount * 0.12;
+    if (effect.type === "vignette") brightness -= amount * 0.12;
+    if (effect.type === "blur") blur += amount * 1.8;
+    if (effect.type === "warp") opacity -= amount * 0.06;
   }
 
   return {
@@ -203,7 +207,7 @@ export function ShaderCanvas({ styleId, config, gradient, effects, sceneElements
     effectsRef.current = effects;
   }, [effects]);
 
-  const hasScanlines = useMemo(() => effects.some((effect) => effect.enabled && effect.kind === "scanline" && effectScope(effect) !== "element"), [effects]);
+  const hasBayer = useMemo(() => effects.some((effect) => effect.enabled && effect.type === "bayerDither" && effectScope(effect) === "scene"), [effects]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -311,7 +315,7 @@ export function ShaderCanvas({ styleId, config, gradient, effects, sceneElements
         }}
       />
 
-      {hasScanlines ? (
+      {hasBayer ? (
         <div className="pointer-events-none absolute inset-0 z-10 opacity-60" style={{ backgroundImage: "repeating-linear-gradient(90deg, rgba(255,255,255,0.2) 0px, rgba(255,255,255,0.2) 1px, transparent 1px, transparent 3px)" }} />
       ) : null}
 
@@ -320,7 +324,7 @@ export function ShaderCanvas({ styleId, config, gradient, effects, sceneElements
           if (!item.visible) return null;
 
           const shell = `absolute overflow-hidden border ${selectedSceneElementId === item.id ? "border-white/60" : "border-white/20"}`;
-          const layerStyle = elementLayerStyles(effects, item.id);
+          const layerStyle = elementLayerStyles(effects);
           const style = {
             left: `${item.x}%`,
             top: `${item.y}%`,

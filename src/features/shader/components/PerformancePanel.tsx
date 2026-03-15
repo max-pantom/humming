@@ -12,10 +12,14 @@ function clamp(value: number, min: number, max: number) {
 }
 
 export function PerformancePanel({ config, effects }: Props) {
-  const activeEffects = effects.filter((effect) => effect.enabled).length;
+  const activeEffects = effects.filter((effect) => effect.enabled);
   const interactionWeight = config.mouseStrength * 30 + config.speed * 12;
   const shaderWeight = config.noiseAmount * 24 + config.glow * 10 + config.grain * 120 + config.scale * 4;
-  const effectWeight = activeEffects * 8;
+  const effectWeight = activeEffects.reduce((sum, effect) => {
+    const cost = effect.gpuCost === "high" ? 14 : effect.gpuCost === "medium" ? 8 : 4;
+    const qualityBoost = effect.quality === "high" ? 1.25 : effect.quality === "low" ? 0.75 : 1;
+    return sum + cost * qualityBoost;
+  }, 0);
   const gpuCost = clamp(Math.round(shaderWeight + interactionWeight + effectWeight), 8, 99);
 
   const frameStability = gpuCost < 35 ? "Stable" : gpuCost < 58 ? "Monitor" : "Risky";

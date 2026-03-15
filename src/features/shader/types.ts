@@ -63,21 +63,31 @@ export type SceneSvgElement = SceneElementBase & {
 
 export type SceneElement = SceneTextElement | SceneImageElement | SceneSvgElement;
 
-export type EffectKind = "wave" | "noise" | "glow" | "drift" | "pulse" | "scanline" | "chromatic" | "vignette";
+export type EffectType = "animatedGradient" | "warp" | "grain" | "bayerDither" | "godRays" | "blur" | "vignette";
+
+export type BlendMode = "normal" | "add" | "screen" | "multiply" | "overlay" | "softLight";
+
+export type EffectCategory = "base" | "distortion" | "texture" | "lighting" | "post";
+
+export type EffectQuality = "low" | "medium" | "high";
 
 export type EffectTarget = {
-  scope: "scene" | "shader" | "element";
-  elementId?: string;
+  scope: "scene" | "shader";
 };
 
 export type EffectLayer = {
   id: string;
-  name: string;
-  kind: EffectKind;
+  type: EffectType;
+  label: string;
+  category: EffectCategory;
   enabled: boolean;
+  order: number;
   intensity: number;
   opacity: number;
-  blendMode: "normal" | "screen" | "overlay" | "multiply";
+  blendMode: BlendMode;
+  quality: EffectQuality;
+  gpuCost: "low" | "medium" | "high";
+  params: Record<string, number | boolean | string | string[]>;
   target: EffectTarget;
 };
 
@@ -92,4 +102,36 @@ export type SavedVariant = {
   effects?: EffectLayer[];
   gradient?: GradientConfig;
   sceneElements?: SceneElement[];
+};
+
+export type MainEffectType = "animatedGradient" | "godRays" | "noiseFlow" | "liquidBlur";
+
+export type ModifierType = "warp" | "grain" | "bayerDither" | "vignette" | "blur";
+
+export type MainEffectInstance = {
+  type: MainEffectType;
+  params: Record<string, number | boolean | string | string[]>;
+};
+
+export type ModifierInstance = {
+  type: ModifierType;
+  enabled: boolean;
+  params: Record<string, number | boolean | string | string[]>;
+};
+
+export type ViewportMode = "hero" | "full" | "transparent" | "card";
+
+export type ExportSettings = {
+  pauseOffscreen: boolean;
+  reducedMotion: boolean;
+  mobileSafeMode: boolean;
+};
+
+export type EffectProject = {
+  id: string;
+  name: string;
+  effect: MainEffectInstance;
+  modifiers: ModifierInstance[];
+  viewport: ViewportMode;
+  export: ExportSettings;
 };

@@ -1,4 +1,5 @@
-import type { EffectKind, EffectLayer, GradientConfig, SceneElement, SceneElementKind, ShaderStyleId, RainbowConfig } from "@/features/shader/types";
+import { createEffectInstance } from "@/features/shader/effectRegistry";
+import type { EffectLayer, GradientConfig, SceneElement, SceneElementKind, ShaderStyleId, RainbowConfig } from "@/features/shader/types";
 
 export type SurfacePreset = {
   id: string;
@@ -179,44 +180,7 @@ export function normalizeStyleId(value: unknown): ShaderStyleId {
   return "flow";
 }
 
-const effectNames: Record<EffectKind, string> = {
-  wave: "Wave Warp",
-  noise: "Noise Drift",
-  glow: "Glow Boost",
-  drift: "Directional Drift",
-  pulse: "Opacity Pulse",
-  scanline: "Scanline",
-  chromatic: "Chromatic",
-  vignette: "Vignette",
-};
-
-export function createEffect(kind: EffectKind): EffectLayer {
-  const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-
-  const defaults: Record<EffectKind, number> = {
-    wave: 0.35,
-    noise: 0.3,
-    glow: 0.4,
-    drift: 0.25,
-    pulse: 0.3,
-    scanline: 0.45,
-    chromatic: 0.35,
-    vignette: 0.35,
-  };
-
-  return {
-    id,
-    name: effectNames[kind],
-    kind,
-    enabled: true,
-    intensity: defaults[kind],
-    opacity: 1,
-    blendMode: "normal",
-    target: { scope: "scene" },
-  };
-}
-
-export const defaultEffects: EffectLayer[] = [createEffect("wave"), createEffect("glow")];
+export const defaultEffects: EffectLayer[] = [createEffectInstance("animatedGradient", 0), createEffectInstance("grain", 1), createEffectInstance("vignette", 2)];
 
 export const defaultGradient: GradientConfig = {
   mode: "linear",

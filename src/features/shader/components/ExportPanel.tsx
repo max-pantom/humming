@@ -17,12 +17,29 @@ type ExportMode = "react" | "html" | "json";
 export function ExportPanel({ styleId, config, gradient, effects, sceneElements }: Props) {
   const [mode, setMode] = useState<ExportMode>("react");
   const [copied, setCopied] = useState(false);
+  const [pauseOffscreen, setPauseOffscreen] = useState(true);
+  const [reducedMotion, setReducedMotion] = useState(true);
+  const [mobileSafe, setMobileSafe] = useState(true);
+  const [transparentBg, setTransparentBg] = useState(false);
+
+  const deploymentHeader = useMemo(
+    () =>
+      [
+        "/* Web Surface Export Options",
+        `pauseOffscreen: ${pauseOffscreen},`,
+        `reducedMotionFallback: ${reducedMotion},`,
+        `mobileSafeMode: ${mobileSafe},`,
+        `transparentBackground: ${transparentBg}`,
+        "*/",
+      ].join("\n"),
+    [mobileSafe, pauseOffscreen, reducedMotion, transparentBg],
+  );
 
   const text = useMemo(() => {
-    if (mode === "react") return exportReactCode(config, styleId);
-    if (mode === "html") return exportHtmlCode(config, styleId);
+    if (mode === "react") return `${deploymentHeader}\n\n${exportReactCode(config, styleId)}`;
+    if (mode === "html") return `<!-- ${deploymentHeader.replace(/\n/g, " | ")} -->\n\n${exportHtmlCode(config, styleId)}`;
     return exportConfigJSON(config, gradient, effects, styleId, sceneElements);
-  }, [config, gradient, effects, mode, sceneElements, styleId]);
+  }, [config, deploymentHeader, gradient, effects, mode, sceneElements, styleId]);
 
   const copy = async () => {
     await navigator.clipboard.writeText(text);
@@ -45,7 +62,7 @@ export function ExportPanel({ styleId, config, gradient, effects, sceneElements 
     <section className="grid gap-3 rounded-xl border border-white/10 bg-panel/90 p-4">
       <div>
         <h2 className="text-lg font-medium">Export</h2>
-        <p className="text-sm text-white/55">React component, HTML embed, or config JSON.</p>
+        <p className="text-sm text-white/55">Production-ready embeds for websites.</p>
       </div>
 
       <div className="flex flex-wrap gap-2">
@@ -67,6 +84,25 @@ export function ExportPanel({ styleId, config, gradient, effects, sceneElements 
         <button onClick={download} className="rounded-md border border-white/15 bg-white/5 px-3 py-1.5 text-sm hover:bg-white/10">
           Download
         </button>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2 text-xs">
+        <label className="flex items-center gap-2 rounded-md border border-white/10 bg-black/20 px-2 py-2">
+          <input type="checkbox" checked={pauseOffscreen} onChange={(event) => setPauseOffscreen(event.target.checked)} />
+          Pause offscreen
+        </label>
+        <label className="flex items-center gap-2 rounded-md border border-white/10 bg-black/20 px-2 py-2">
+          <input type="checkbox" checked={reducedMotion} onChange={(event) => setReducedMotion(event.target.checked)} />
+          Reduced motion
+        </label>
+        <label className="flex items-center gap-2 rounded-md border border-white/10 bg-black/20 px-2 py-2">
+          <input type="checkbox" checked={mobileSafe} onChange={(event) => setMobileSafe(event.target.checked)} />
+          Mobile safe mode
+        </label>
+        <label className="flex items-center gap-2 rounded-md border border-white/10 bg-black/20 px-2 py-2">
+          <input type="checkbox" checked={transparentBg} onChange={(event) => setTransparentBg(event.target.checked)} />
+          Transparent background
+        </label>
       </div>
 
       <pre className="max-h-[320px] overflow-auto rounded-lg border border-white/10 bg-black/35 p-3 text-xs text-white/75">

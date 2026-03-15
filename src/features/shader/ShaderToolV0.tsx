@@ -1,277 +1,206 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { ControlPanel } from "@/features/shader/components/ControlPanel";
+import { EffectInspector } from "@/features/shader/components/EffectInspector";
 import { EffectsPanel } from "@/features/shader/components/EffectsPanel";
 import { ExportPanel } from "@/features/shader/components/ExportPanel";
-import { LibraryPanel } from "@/features/shader/components/LibraryPanel";
-import { SceneToolbar, type SceneTool } from "@/features/shader/components/SceneToolbar";
+import { PerformancePanel } from "@/features/shader/components/PerformancePanel";
 import { ShaderCanvas } from "@/features/shader/components/ShaderCanvas";
+import { exportConfigJSON } from "@/features/shader/lib/exporters";
 import { useShaderStore } from "@/features/shader/store/useShaderStore";
 import { cn } from "@/lib/utils";
 
-type SidebarSection = "effects" | "style" | "layers" | "library" | "export";
+type PreviewContext = "hero" | "card" | "section" | "background";
+type RightSection = "design" | "effects" | "performance" | "export";
 
 export default function ShaderToolV0() {
   const {
     config,
     styleId,
     effects,
+    selectedEffectId,
     gradient,
     sceneElements,
-    selectedSceneElementId,
     savedVariants,
-    setStyleId,
     setConfig,
     addEffect,
+    selectEffect,
     patchEffect,
+    patchEffectParam,
     moveEffect,
     removeEffect,
     addGradientStop,
     patchGradientStop,
     removeGradientStop,
-    addSceneElement,
-    patchSceneElement,
-    selectSceneElement,
-    removeSceneElement,
-    resetConfig,
     saveVariant,
     loadVariant,
-    deleteVariant,
-    importConfig,
+    resetConfig,
   } = useShaderStore();
 
-  const [view, setView] = useState<"desktop" | "mobile">("desktop");
-  const [activeTool, setActiveTool] = useState<SceneTool>("select");
-  const [sidebarSection, setSidebarSection] = useState<SidebarSection>("layers");
-  const selectedSceneElement = sceneElements.find((item) => item.id === selectedSceneElementId) ?? null;
+  const [previewContext, setPreviewContext] = useState<PreviewContext>("hero");
+  const [viewport, setViewport] = useState<"desktop" | "mobile">("desktop");
+  const [rightSection, setRightSection] = useState<RightSection>("design");
+
+  const selectedEffect = useMemo(() => effects.find((item) => item.id === selectedEffectId) ?? null, [effects, selectedEffectId]);
+
+  const previewCanvas = (
+    <div className={cn("h-full w-full", viewport === "mobile" && "mx-auto max-w-[390px]")}>
+      <ShaderCanvas
+        styleId={styleId}
+        config={config}
+        gradient={gradient}
+        effects={effects}
+        sceneElements={sceneElements}
+        selectedSceneElementId={null}
+        onSelectSceneElement={() => {
+          // Deployment-focused mode: disable layer selection interactions in main workflow.
+        }}
+      />
+    </div>
+  );
 
   return (
-    <main className="h-dvh w-full overflow-hidden p-2 md:p-3">
-      <section className="grid h-full min-h-0 grid-cols-1 gap-2 xl:grid-cols-[minmax(0,1fr)_360px]">
-        <div className={cn("relative h-full w-full", view === "mobile" && "mx-auto max-w-[390px]")}>
-          <SceneToolbar
-            styleId={styleId}
-            activeTool={activeTool}
-            onToolChange={setActiveTool}
-            onStyleChange={setStyleId}
-            onAddText={() => addSceneElement("text")}
-            onAddImage={() => addSceneElement("image")}
-            onAddSvg={() => addSceneElement("svg")}
-          />
-          <ShaderCanvas
-            styleId={styleId}
-            config={config}
-            gradient={gradient}
-            effects={effects}
-            sceneElements={sceneElements}
-            selectedSceneElementId={selectedSceneElementId}
-            onSelectSceneElement={selectSceneElement}
-          />
+    <main className="h-dvh w-full overflow-hidden p-3">
+      <section className="mb-2 flex items-center justify-between rounded-md border border-white/10 bg-black/20 px-3 py-2">
+        <div>
+          <p className="text-xs text-white/55">Website Surface Editor</p>
+          <h1 className="text-sm font-medium text-white">Untitled Surface</h1>
         </div>
+        <div className="flex items-center gap-2 text-xs">
+          <button
+            onClick={() => saveVariant(`Surface ${new Date().toLocaleTimeString()}`)}
+            className="rounded-md border border-white/15 bg-white/5 px-2 py-1.5 hover:bg-white/10"
+          >
+            Duplicate
+          </button>
+          <button
+            onClick={async () => {
+              const json = exportConfigJSON(config, gradient, effects, styleId, sceneElements);
+              await navigator.clipboard.writeText(json);
+            }}
+            className="rounded-md border border-white/15 bg-white/5 px-2 py-1.5 hover:bg-white/10"
+          >
+            Share
+          </button>
+          <button onClick={resetConfig} className="rounded-md border border-white/15 bg-white/5 px-2 py-1.5 hover:bg-white/10">
+            Reset
+          </button>
+          <button onClick={() => setRightSection("export")} className="rounded-md border border-white/25 bg-white/15 px-2 py-1.5 text-white">
+            Export
+          </button>
+        </div>
+      </section>
 
-        <aside className="grid self-start gap-2 rounded-lg border border-white/10 bg-[#0f0f11] p-2">
-          <div className="flex h-8 flex-nowrap items-center gap-1 overflow-hidden border-b border-white/10 pb-1">
-            <label className="flex min-w-0 flex-1 items-center gap-1 text-[11px] text-white/60">
-              <select
-                value={sidebarSection}
-                onChange={(event) => setSidebarSection(event.target.value as SidebarSection)}
-                className="h-6 min-w-0 w-full rounded-md border border-white/15 bg-white/5 px-2 text-[11px] text-white"
-              >
-                <option value="layers">Layers</option>
-                <option value="effects">Effects</option>
-                <option value="style">Style</option>
-                <option value="library">Library</option>
-                <option value="export">Export</option>
-              </select>
-            </label>
+      <section className="grid h-[calc(100dvh-76px)] min-h-0 grid-cols-1 gap-3 xl:grid-cols-[260px_minmax(0,1fr)_390px]">
+        <aside className="grid min-h-0 gap-3 overflow-auto rounded-md border border-white/10 bg-black/20 p-3">
+          <EffectsPanel
+            effects={effects}
+            selectedEffectId={selectedEffectId}
+            onSelect={selectEffect}
+            onAdd={addEffect}
+            onPatch={patchEffect}
+            onMove={moveEffect}
+            onRemove={removeEffect}
+          />
 
-            <div className="flex shrink-0 items-center gap-1">
-              <button
-                onClick={() => setView("desktop")}
-                className={cn("h-6 rounded-md border px-2 text-[11px]", view === "desktop" ? "border-white/35 bg-white/15" : "border-white/10 bg-white/5")}
-              >
-                Desk
+          <div className="grid gap-2 rounded-md border border-white/10 bg-panel/90 p-3">
+            <p className="text-xs text-white/60">Saved Versions</p>
+            {savedVariants.slice(0, 6).map((variant) => (
+              <button key={variant.id} onClick={() => loadVariant(variant.id)} className="rounded-md border border-white/10 bg-white/5 px-2 py-1.5 text-left text-xs hover:bg-white/10">
+                {variant.name}
               </button>
-              <button
-                onClick={() => setView("mobile")}
-                className={cn("h-6 rounded-md border px-2 text-[11px]", view === "mobile" ? "border-white/35 bg-white/15" : "border-white/10 bg-white/5")}
-              >
-                Mob
+            ))}
+          </div>
+        </aside>
+
+        <section className="grid min-h-0 gap-2 rounded-md border border-white/10 bg-black/20 p-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex gap-1">
+              {(["hero", "card", "section", "background"] as const).map((item) => (
+                <button
+                  key={item}
+                  onClick={() => setPreviewContext(item)}
+                  className={cn(
+                    "rounded-md border px-2 py-1 text-xs capitalize",
+                    previewContext === item ? "border-white/35 bg-white/15" : "border-white/10 bg-white/5",
+                  )}
+                >
+                  {item}
+                </button>
+              ))}
+            </div>
+
+            <div className="ml-auto flex gap-1">
+              <button onClick={() => setViewport("desktop")} className={cn("rounded-md border px-2 py-1 text-xs", viewport === "desktop" ? "border-white/35 bg-white/15" : "border-white/10 bg-white/5")}>
+                Desktop
+              </button>
+              <button onClick={() => setViewport("mobile")} className={cn("rounded-md border px-2 py-1 text-xs", viewport === "mobile" ? "border-white/35 bg-white/15" : "border-white/10 bg-white/5")}>
+                Mobile
               </button>
             </div>
           </div>
 
-            {sidebarSection === "effects" ? (
-              <EffectsPanel
-                effects={effects}
-                selectedElementId={selectedSceneElementId}
-                onAdd={addEffect}
-                onPatch={patchEffect}
-                onMove={moveEffect}
-                onRemove={removeEffect}
-              />
+          <div className="min-h-0 overflow-hidden rounded-md border border-white/10 bg-[#0b0c0f] p-2">
+            {previewContext === "hero" ? <div className="h-full">{previewCanvas}</div> : null}
+
+            {previewContext === "background" ? <div className="h-full">{previewCanvas}</div> : null}
+
+            {previewContext === "card" ? (
+              <div className="grid h-full place-items-center">
+                <div className="h-[72%] w-full max-w-[760px] rounded-lg border border-white/10 p-2">{previewCanvas}</div>
+              </div>
             ) : null}
 
-            {sidebarSection === "style" ? (
-              <ControlPanel
-                config={config}
-                gradient={gradient}
-                onPatch={setConfig}
-                onAddGradientStop={addGradientStop}
-                onPatchGradientStop={patchGradientStop}
-                onRemoveGradientStop={removeGradientStop}
-                onReset={resetConfig}
-              />
-            ) : null}
-
-            {sidebarSection === "layers" ? (
-              <section className="grid gap-3 rounded-md border border-white/10 bg-black/25 p-3">
-                <div>
-                  <h2 className="text-sm font-medium">Inspector</h2>
-                  <p className="text-[11px] text-white/55">Select a layer to edit.</p>
+            {previewContext === "section" ? (
+              <div className="grid h-full grid-cols-1 gap-3 lg:grid-cols-[1fr_1.2fr]">
+                <div className="rounded-md border border-white/10 bg-white/5 p-4">
+                  <h3 className="text-lg text-balance">Landing Section Preview</h3>
+                  <p className="mt-2 text-sm text-white/60 text-pretty">Check contrast and movement with real content beside your WebGL surface.</p>
                 </div>
-
-                <div className="grid gap-2">
-                  {sceneElements.length === 0 ? <p className="text-xs text-white/60">Use toolbar to add text, image, or SVG.</p> : null}
-
-                  {sceneElements.map((item) => (
-                    <button
-                      key={item.id}
-                      onClick={() => selectSceneElement(item.id)}
-                      className={cn(
-                        "flex items-center justify-between rounded-md border px-2 py-1.5 text-xs",
-                        selectedSceneElementId === item.id ? "border-white/35 bg-white/10" : "border-white/15 bg-white/5",
-                      )}
-                    >
-                      <span className="capitalize">{item.kind}</span>
-                      <span className="text-white/60">{item.visible ? "Visible" : "Hidden"}</span>
-                    </button>
-                  ))}
-
-                  {selectedSceneElement ? (
-                    <div className="mt-1 grid gap-3 rounded-md border border-white/10 bg-black/35 p-2">
-                      <div className="border-b border-white/10 pb-2">
-                        <p className="mb-2 text-[11px] uppercase text-white/55">Position</p>
-                        <div className="grid grid-cols-2 gap-2">
-                          <label className="grid gap-1 text-xs text-white/70">
-                            <span>X</span>
-                            <input
-                              type="number"
-                              value={selectedSceneElement.x}
-                              onChange={(event) => patchSceneElement(selectedSceneElement.id, { x: Number.parseFloat(event.target.value) || 0 })}
-                              className="rounded-md border border-white/15 bg-black/50 px-2 py-1"
-                            />
-                          </label>
-                          <label className="grid gap-1 text-xs text-white/70">
-                            <span>Y</span>
-                            <input
-                              type="number"
-                              value={selectedSceneElement.y}
-                              onChange={(event) => patchSceneElement(selectedSceneElement.id, { y: Number.parseFloat(event.target.value) || 0 })}
-                              className="rounded-md border border-white/15 bg-black/50 px-2 py-1"
-                            />
-                          </label>
-                        </div>
-                      </div>
-
-                      <div className="border-b border-white/10 pb-2">
-                        <p className="mb-2 text-[11px] uppercase text-white/55">Size</p>
-                        <div className="grid grid-cols-2 gap-2">
-                          <label className="grid gap-1 text-xs text-white/70">
-                            <span>Width</span>
-                            <input
-                              type="number"
-                              value={selectedSceneElement.width}
-                              onChange={(event) => patchSceneElement(selectedSceneElement.id, { width: Math.max(24, Number.parseFloat(event.target.value) || 24) })}
-                              className="rounded-md border border-white/15 bg-black/50 px-2 py-1"
-                            />
-                          </label>
-                          <label className="grid gap-1 text-xs text-white/70">
-                            <span>Height</span>
-                            <input
-                              type="number"
-                              value={selectedSceneElement.height}
-                              onChange={(event) => patchSceneElement(selectedSceneElement.id, { height: Math.max(24, Number.parseFloat(event.target.value) || 24) })}
-                              className="rounded-md border border-white/15 bg-black/50 px-2 py-1"
-                            />
-                          </label>
-                        </div>
-                      </div>
-
-                      <div>
-                        <p className="mb-2 text-[11px] uppercase text-white/55">Content</p>
-                        {selectedSceneElement.kind === "text" ? (
-                          <label className="grid gap-1 text-xs text-white/70">
-                            <span>Text</span>
-                            <input
-                              value={selectedSceneElement.text}
-                              onChange={(event) => patchSceneElement(selectedSceneElement.id, { text: event.target.value })}
-                              className="rounded-md border border-white/15 bg-black/50 px-2 py-1"
-                            />
-                          </label>
-                        ) : null}
-
-                        {selectedSceneElement.kind === "image" ? (
-                          <label className="grid gap-1 text-xs text-white/70">
-                            <span>Image URL</span>
-                            <input
-                              value={selectedSceneElement.src}
-                              onChange={(event) => patchSceneElement(selectedSceneElement.id, { src: event.target.value })}
-                              className="rounded-md border border-white/15 bg-black/50 px-2 py-1"
-                            />
-                          </label>
-                        ) : null}
-
-                        {selectedSceneElement.kind === "svg" ? (
-                          <label className="grid gap-1 text-xs text-white/70">
-                            <span>SVG markup</span>
-                            <textarea
-                              rows={3}
-                              value={selectedSceneElement.svgMarkup}
-                              onChange={(event) => patchSceneElement(selectedSceneElement.id, { svgMarkup: event.target.value })}
-                              className="rounded-md border border-white/15 bg-black/50 px-2 py-1"
-                            />
-                          </label>
-                        ) : null}
-                      </div>
-
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => patchSceneElement(selectedSceneElement.id, { visible: !selectedSceneElement.visible })}
-                          className="rounded-md border border-white/15 bg-white/5 px-2 py-1 text-xs hover:bg-white/10"
-                        >
-                          {selectedSceneElement.visible ? "Hide" : "Show"}
-                        </button>
-                        <button
-                          onClick={() => removeSceneElement(selectedSceneElement.id)}
-                          className="rounded-md border border-white/15 bg-white/5 px-2 py-1 text-xs hover:bg-white/10"
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    </div>
-                  ) : null}
-                </div>
-              </section>
+                <div className="h-full">{previewCanvas}</div>
+              </div>
             ) : null}
+          </div>
+        </section>
 
-            {sidebarSection === "library" ? (
-              <LibraryPanel
-                styleId={styleId}
-                config={config}
-                gradient={gradient}
-                effects={effects}
-                sceneElements={sceneElements}
-                variants={savedVariants}
-                onSave={saveVariant}
-                onLoad={loadVariant}
-                onDelete={deleteVariant}
-                onImport={importConfig}
-              />
-            ) : null}
+        <aside className="grid min-h-0 gap-2 overflow-auto rounded-md border border-white/10 bg-black/20 p-3">
+          <EffectInspector effect={selectedEffect} onPatch={patchEffect} onPatchParam={patchEffectParam} />
 
-            {sidebarSection === "export" ? <ExportPanel styleId={styleId} config={config} gradient={gradient} effects={effects} sceneElements={sceneElements} /> : null}
+          <div className="flex gap-1">
+            {([
+              { id: "design", label: "Design" },
+              { id: "effects", label: "Effects" },
+              { id: "performance", label: "Performance" },
+              { id: "export", label: "Export" },
+            ] as const).map((item) => (
+              <button
+                key={item.id}
+                onClick={() => setRightSection(item.id)}
+                className={cn("rounded-md border px-2 py-1 text-xs", rightSection === item.id ? "border-white/35 bg-white/15" : "border-white/10 bg-white/5")}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+
+          {rightSection === "design" ? (
+            <ControlPanel
+              config={config}
+              gradient={gradient}
+              onPatch={setConfig}
+              onAddGradientStop={addGradientStop}
+              onPatchGradientStop={patchGradientStop}
+              onRemoveGradientStop={removeGradientStop}
+              onReset={resetConfig}
+            />
+          ) : null}
+
+          {rightSection === "effects" ? <PerformancePanel config={config} effects={effects} /> : null}
+
+          {rightSection === "performance" ? <PerformancePanel config={config} effects={effects} /> : null}
+
+          {rightSection === "export" ? <ExportPanel styleId={styleId} config={config} gradient={gradient} effects={effects} sceneElements={sceneElements} /> : null}
         </aside>
       </section>
     </main>
