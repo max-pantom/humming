@@ -13,7 +13,7 @@ export type RainbowConfig = {
   mouseStrength: number;
 };
 
-export type ShaderStyleId = "flow" | "plasma" | "aurora" | "crt";
+export type ShaderStyleId = "flow" | "plasma" | "aurora" | "crt" | "mesh" | "holo";
 
 export type GradientMode = "linear" | "radial";
 
@@ -104,7 +104,7 @@ export type SavedVariant = {
   sceneElements?: SceneElement[];
 };
 
-export type MainEffectType = "animatedGradient" | "godRays" | "noiseFlow" | "liquidBlur";
+export type MainEffectType = "animatedGradient" | "godRays" | "noiseFlow" | "liquidBlur" | "meshGlow" | "holoWave" | "custom";
 
 export type ModifierType = "warp" | "grain" | "bayerDither" | "vignette" | "blur";
 
@@ -134,4 +134,21 @@ export type EffectProject = {
   modifiers: ModifierInstance[];
   viewport: ViewportMode;
   export: ExportSettings;
+};
+
+export type GradientEffectControls = {
+  color1: string;
+  color2: string;
+  color3: string;
+  speed: number;
+  scale: number;
+  warpStrength: number;
+  grainAmount: number;
+  ditherAmount: number;
+};
+
+export type ModifierToggles = {
+  warp: boolean;
+  grain: boolean;
+  bayerDither: boolean;
 };

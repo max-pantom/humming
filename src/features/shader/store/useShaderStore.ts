@@ -2,269 +2,177 @@
 
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
-import { createEffectInstance, effectRegistry } from "@/features/shader/effectRegistry";
-import { configForStyle, createSceneElement, defaultEffects, defaultGradient, normalizeStyleId } from "@/features/shader/presets";
-import type { EffectLayer, EffectType, GradientConfig, GradientStop, RainbowConfig, SavedVariant, SceneElement, SceneElementKind, ShaderStyleId } from "@/features/shader/types";
+import type { ExportSettings, GradientEffectControls, MainEffectType, ModifierToggles, ViewportMode } from "@/features/shader/types";
 
-type ShaderStore = {
-  styleId: ShaderStyleId;
-  config: RainbowConfig;
-  gradient: GradientConfig;
-  effects: EffectLayer[];
-  selectedEffectId: string | null;
-  sceneElements: SceneElement[];
-  selectedSceneElementId: string | null;
-  savedVariants: SavedVariant[];
-  setStyleId: (styleId: ShaderStyleId) => void;
-  setConfig: (next: Partial<RainbowConfig>) => void;
-  addEffect: (type: EffectType) => void;
-  selectEffect: (id: string | null) => void;
-  patchEffect: (id: string, next: Partial<Omit<EffectLayer, "id" | "type" | "params">>) => void;
-  patchEffectParam: (id: string, key: string, value: string | number | boolean | string[]) => void;
-  moveEffect: (id: string, direction: "up" | "down") => void;
-  removeEffect: (id: string) => void;
-  addGradientStop: () => void;
-  patchGradientStop: (id: string, next: Partial<GradientStop>) => void;
-  removeGradientStop: (id: string) => void;
-  addSceneElement: (kind: SceneElementKind) => void;
-  patchSceneElement: (id: string, next: Record<string, unknown>) => void;
-  selectSceneElement: (id: string | null) => void;
-  removeSceneElement: (id: string) => void;
-  resetConfig: () => void;
-  saveVariant: (name: string) => void;
-  loadVariant: (id: string) => void;
+const DEFAULT_CUSTOM_FRAGMENT = `precision highp float;
+
+varying vec2 v_uv;
+
+uniform vec2 u_resolution;
+uniform float u_time;
+uniform vec2 u_mouse;
+uniform vec3 u_colorA;
+uniform vec3 u_colorB;
+uniform vec3 u_colorC;
+uniform float u_speed;
+uniform float u_scale;
+uniform float u_noiseAmount;
+uniform float u_glow;
+uniform float u_grain;
+uniform float u_spread;
+uniform float u_direction;
+uniform float u_opacity;
+uniform float u_mouseStrength;
+
+float hash(vec2 p) {
+  return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+}
+
+void main() {
+  vec2 uv = v_uv;
+  vec2 p = uv - 0.5;
+  p.x *= u_resolution.x / u_resolution.y;
+
+  float t = u_time * (0.6 + u_speed);
+  float wave = sin((p.x + p.y * 0.7) * (8.0 + u_scale * 2.0) + t * 1.8);
+  float radial = smoothstep(1.2, 0.1, length(p));
+
+  vec3 color = mix(u_colorA, u_colorB, wave * 0.5 + 0.5);
+  color = mix(color, u_colorC, radial * 0.6);
+
+  float noise = (hash(gl_FragCoord.xy + t * 25.0) - 0.5) * u_grain;
+  color += noise;
+  gl_FragColor = vec4(clamp(color, 0.0, 1.0), u_opacity);
+}`;
+
+type SavedConfig = {
+  id: string;
+  name: string;
+  createdAt: number;
+  effectType: MainEffectType;
+  controls: GradientEffectControls;
+  modifiers: ModifierToggles;
+  viewport: ViewportMode;
+  customFragmentSource: string;
+  exportSettings: ExportSettings;
 };
 
-function clamp01(value: number) {
-  return Math.min(1, Math.max(0, value));
-}
-
-function isValidConfig(value: unknown): value is RainbowConfig {
-  if (!value || typeof value !== "object") return false;
-  const v = value as Record<string, unknown>;
-  const stringKeys = ["paletteA", "paletteB", "paletteC"];
-  const numberKeys = ["speed", "scale", "noiseAmount", "glow", "grain", "spread", "direction", "opacity", "mouseStrength"];
-  return stringKeys.every((k) => typeof v[k] === "string") && numberKeys.every((k) => typeof v[k] === "number");
-}
-
-function isValidGradientStop(value: unknown): value is GradientStop {
-  if (!value || typeof value !== "object") return false;
-  const stop = value as Record<string, unknown>;
-  return typeof stop.id === "string" && typeof stop.color === "string" && typeof stop.position === "number";
-}
-
-function normalizeGradient(input: unknown): GradientConfig {
-  if (!input || typeof input !== "object") return defaultGradient;
-  const grad = input as Record<string, unknown>;
-  const mode = grad.mode === "radial" ? "radial" : "linear";
-  const angle = typeof grad.angle === "number" ? grad.angle : defaultGradient.angle;
-  const stops = Array.isArray(grad.stops) ? grad.stops.filter(isValidGradientStop) : [];
-  return { mode, angle, stops: stops.length > 1 ? stops.sort((a, b) => a.position - b.position) : defaultGradient.stops };
-}
-
-const legacyKindMap: Record<string, EffectType> = {
-  wave: "warp",
-  noise: "grain",
-  glow: "godRays",
-  drift: "animatedGradient",
-  pulse: "vignette",
-  scanline: "bayerDither",
-  chromatic: "blur",
-  vignette: "vignette",
+type Store = {
+  projectName: string;
+  effectType: MainEffectType;
+  controls: GradientEffectControls;
+  modifiers: ModifierToggles;
+  viewport: ViewportMode;
+  customFragmentSource: string;
+  exportSettings: ExportSettings;
+  saved: SavedConfig[];
+  setProjectName: (name: string) => void;
+  setEffectType: (effectType: MainEffectType) => void;
+  patchControls: (next: Partial<GradientEffectControls>) => void;
+  toggleModifier: (key: keyof ModifierToggles, enabled: boolean) => void;
+  setViewport: (mode: ViewportMode) => void;
+  setCustomFragmentSource: (source: string) => void;
+  patchExportSettings: (next: Partial<ExportSettings>) => void;
+  saveCurrent: (name?: string) => void;
+  loadSaved: (id: string) => void;
+  reset: () => void;
 };
 
-function coerceEffect(input: unknown, index: number): EffectLayer | null {
-  if (!input || typeof input !== "object") return null;
-  const raw = input as Record<string, unknown>;
+const defaults = {
+  projectName: "Untitled Web Surface",
+  effectType: "animatedGradient" as MainEffectType,
+  controls: {
+    color1: "#6d5ef4",
+    color2: "#ff4ecd",
+    color3: "#4de2c5",
+    speed: 0.4,
+    scale: 2,
+    warpStrength: 0.12,
+    grainAmount: 0.04,
+    ditherAmount: 0.06,
+  } satisfies GradientEffectControls,
+  modifiers: {
+    warp: true,
+    grain: true,
+    bayerDither: false,
+  } satisfies ModifierToggles,
+  viewport: "hero" as ViewportMode,
+  customFragmentSource: DEFAULT_CUSTOM_FRAGMENT,
+  exportSettings: {
+    pauseOffscreen: true,
+    reducedMotion: true,
+    mobileSafeMode: true,
+  } satisfies ExportSettings,
+};
 
-  const typeRaw = typeof raw.type === "string" ? raw.type : typeof raw.kind === "string" ? legacyKindMap[raw.kind] : undefined;
-  if (!typeRaw || !(typeRaw in effectRegistry)) return null;
-  const type = typeRaw as EffectType;
-  const base = createEffectInstance(type, index);
-
-  return {
-    ...base,
-    id: typeof raw.id === "string" ? raw.id : base.id,
-    label: typeof raw.label === "string" ? raw.label : typeof raw.name === "string" ? raw.name : base.label,
-    enabled: typeof raw.enabled === "boolean" ? raw.enabled : base.enabled,
-    order: typeof raw.order === "number" ? raw.order : index,
-    intensity: typeof raw.intensity === "number" ? clamp01(raw.intensity) : base.intensity,
-    opacity: typeof raw.opacity === "number" ? clamp01(raw.opacity) : base.opacity,
-    blendMode:
-      raw.blendMode === "add" ||
-      raw.blendMode === "screen" ||
-      raw.blendMode === "multiply" ||
-      raw.blendMode === "overlay" ||
-      raw.blendMode === "softLight" ||
-      raw.blendMode === "normal"
-        ? raw.blendMode
-        : base.blendMode,
-    quality: raw.quality === "low" || raw.quality === "medium" || raw.quality === "high" ? raw.quality : base.quality,
-    target: raw.target && typeof raw.target === "object" && (raw.target as Record<string, unknown>).scope === "shader" ? { scope: "shader" } : { scope: "scene" },
-    params: raw.params && typeof raw.params === "object" ? { ...base.params, ...(raw.params as Record<string, number | boolean | string | string[]>) } : base.params,
-  };
-}
-
-function normalizeEffects(input: unknown): EffectLayer[] {
-  if (!Array.isArray(input)) return defaultEffects;
-  const normalized = input.map((item, index) => coerceEffect(item, index)).filter((item): item is EffectLayer => !!item);
-  return normalized.length > 0 ? normalized.sort((a, b) => a.order - b.order).map((item, index) => ({ ...item, order: index })) : defaultEffects;
-}
-
-function isValidSceneElement(value: unknown): value is SceneElement {
-  if (!value || typeof value !== "object") return false;
-  const item = value as Record<string, unknown>;
-  const hasBase = typeof item.id === "string" && typeof item.x === "number" && typeof item.y === "number" && typeof item.width === "number" && typeof item.height === "number";
-  return hasBase;
-}
-
-function normalizeSceneElements(input: unknown): SceneElement[] {
-  if (!Array.isArray(input)) return [];
-  return input.filter(isValidSceneElement);
-}
-
-export const useShaderStore = create<ShaderStore>()(
+export const useShaderStore = create<Store>()(
   persist(
     (set, get) => ({
-      styleId: "flow",
-      config: configForStyle("flow"),
-      gradient: defaultGradient,
-      effects: defaultEffects,
-      selectedEffectId: defaultEffects[0]?.id ?? null,
-      sceneElements: [],
-      selectedSceneElementId: null,
-      savedVariants: [],
-
-      setStyleId: (styleId) => set({ styleId, config: configForStyle(styleId) }),
-      setConfig: (next) => set((state) => ({ config: { ...state.config, ...next } })),
-
-      addEffect: (type) =>
-        set((state) => {
-          const next = createEffectInstance(type, state.effects.length);
-          return { effects: [...state.effects, next], selectedEffectId: next.id };
-        }),
-      selectEffect: (id) => set({ selectedEffectId: id }),
-      patchEffect: (id, next) => set((state) => ({ effects: state.effects.map((effect) => (effect.id === id ? { ...effect, ...next } : effect)) })),
-      patchEffectParam: (id, key, value) =>
-        set((state) => ({
-          effects: state.effects.map((effect) => (effect.id === id ? { ...effect, params: { ...effect.params, [key]: value } } : effect)),
-        })),
-      moveEffect: (id, direction) =>
-        set((state) => {
-          const index = state.effects.findIndex((effect) => effect.id === id);
-          if (index < 0) return state;
-          const target = direction === "up" ? index - 1 : index + 1;
-          if (target < 0 || target >= state.effects.length) return state;
-          const next = [...state.effects];
-          const tmp = next[index];
-          next[index] = next[target];
-          next[target] = tmp;
-          return { effects: next.map((item, i) => ({ ...item, order: i })) };
-        }),
-      removeEffect: (id) =>
-        set((state) => {
-          const next = state.effects.filter((effect) => effect.id !== id).map((item, index) => ({ ...item, order: index }));
-          return { effects: next, selectedEffectId: state.selectedEffectId === id ? next[0]?.id ?? null : state.selectedEffectId };
-        }),
-
-      addGradientStop: () =>
-        set((state) => ({
-          gradient: { ...state.gradient, stops: [...state.gradient.stops, { id: `${Date.now()}`, color: "#ffffff", position: 0.5 }] },
-        })),
-      patchGradientStop: (id, next) =>
-        set((state) => ({
-          gradient: {
-            ...state.gradient,
-            stops: state.gradient.stops.map((stop) => (stop.id === id ? { ...stop, ...next, position: typeof next.position === "number" ? clamp01(next.position) : stop.position } : stop)),
-          },
-        })),
-      removeGradientStop: (id) =>
-        set((state) => {
-          const nextStops = state.gradient.stops.filter((stop) => stop.id !== id);
-          if (nextStops.length < 2) return state;
-          return { gradient: { ...state.gradient, stops: nextStops } };
-        }),
-
-      addSceneElement: (kind) =>
-        set((state) => {
-          const next = createSceneElement(kind, state.sceneElements.length);
-          return { sceneElements: [...state.sceneElements, next], selectedSceneElementId: next.id };
-        }),
-      patchSceneElement: (id, next) => set((state) => ({ sceneElements: state.sceneElements.map((item) => (item.id === id ? ({ ...item, ...next } as SceneElement) : item)) })),
-      selectSceneElement: (id) => set({ selectedSceneElementId: id }),
-      removeSceneElement: (id) => set((state) => ({ sceneElements: state.sceneElements.filter((item) => item.id !== id), selectedSceneElementId: state.selectedSceneElementId === id ? null : state.selectedSceneElementId })),
-
-      resetConfig: () => set({ styleId: "flow", config: configForStyle("flow"), gradient: defaultGradient, effects: defaultEffects, selectedEffectId: defaultEffects[0]?.id ?? null, sceneElements: [], selectedSceneElementId: null }),
-
-      saveVariant: (name) => {
-        const trimmed = name.trim();
-        if (!trimmed) return;
-        const record: SavedVariant = {
+      ...defaults,
+      saved: [],
+      setProjectName: (name) => set({ projectName: name }),
+      setEffectType: (effectType) => set({ effectType }),
+      patchControls: (next) => set((state) => ({ controls: { ...state.controls, ...next } })),
+      toggleModifier: (key, enabled) => set((state) => ({ modifiers: { ...state.modifiers, [key]: enabled } })),
+      setViewport: (mode) => set({ viewport: mode }),
+      setCustomFragmentSource: (source) => set({ customFragmentSource: source }),
+      patchExportSettings: (next) => set((state) => ({ exportSettings: { ...state.exportSettings, ...next } })),
+      saveCurrent: (name) => {
+        const label = name?.trim() || get().projectName;
+        const item: SavedConfig = {
           id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-          name: trimmed,
+          name: label,
           createdAt: Date.now(),
-          styleId: get().styleId,
-          config: get().config,
-          effects: get().effects,
-          gradient: get().gradient,
-          sceneElements: get().sceneElements,
+          effectType: get().effectType,
+          controls: get().controls,
+          modifiers: get().modifiers,
+          viewport: get().viewport,
+          customFragmentSource: get().customFragmentSource,
+          exportSettings: get().exportSettings,
         };
-        set((state) => ({ savedVariants: [record, ...state.savedVariants].slice(0, 40) }));
+        set((state) => ({ saved: [item, ...state.saved].slice(0, 30) }));
       },
-      loadVariant: (id) => {
-        const item = get().savedVariants.find((variant) => variant.id === id);
+      loadSaved: (id) => {
+        const item = get().saved.find((entry) => entry.id === id);
         if (!item) return;
-        const effects = normalizeEffects(item.effects);
         set({
-          styleId: normalizeStyleId(item.styleId),
-          config: isValidConfig(item.config) ? item.config : configForStyle("flow"),
-          gradient: normalizeGradient(item.gradient),
-          effects,
-          selectedEffectId: effects[0]?.id ?? null,
-          sceneElements: normalizeSceneElements(item.sceneElements),
-          selectedSceneElementId: null,
+          projectName: item.name,
+          effectType: item.effectType,
+          controls: item.controls,
+          modifiers: item.modifiers,
+          viewport: item.viewport,
+          customFragmentSource: item.customFragmentSource || DEFAULT_CUSTOM_FRAGMENT,
+          exportSettings: item.exportSettings,
         });
       },
+      reset: () => set({ ...defaults }),
     }),
     {
-      name: "shader-tool-v0",
+      name: "web-surface-editor-v2",
       storage: createJSONStorage(() => localStorage),
       migrate: (persistedState) => {
         if (!persistedState || typeof persistedState !== "object") return persistedState;
         const state = persistedState as Record<string, unknown>;
-        const effects = normalizeEffects(state.effects);
+        const effectType =
+          state.effectType === "animatedGradient" || state.effectType === "godRays" || state.effectType === "noiseFlow" || state.effectType === "liquidBlur" || state.effectType === "meshGlow" || state.effectType === "holoWave" || state.effectType === "custom"
+            ? state.effectType
+            : "animatedGradient";
         return {
           ...state,
-          styleId: normalizeStyleId(state.styleId),
-          config: isValidConfig(state.config) ? state.config : configForStyle("flow"),
-          gradient: normalizeGradient(state.gradient),
-          effects,
-          selectedEffectId: typeof state.selectedEffectId === "string" ? state.selectedEffectId : effects[0]?.id ?? null,
-          sceneElements: normalizeSceneElements(state.sceneElements),
-          savedVariants: Array.isArray(state.savedVariants)
-            ? state.savedVariants.map((variant) => {
-                if (!variant || typeof variant !== "object") return variant;
-                const item = variant as Record<string, unknown>;
-                return {
-                  ...item,
-                  styleId: normalizeStyleId(item.styleId),
-                  effects: normalizeEffects(item.effects),
-                  gradient: normalizeGradient(item.gradient),
-                  sceneElements: normalizeSceneElements(item.sceneElements),
-                };
-              })
-            : [],
+          effectType,
+          customFragmentSource: typeof state.customFragmentSource === "string" ? state.customFragmentSource : DEFAULT_CUSTOM_FRAGMENT,
         };
       },
       partialize: (state) => ({
-        styleId: state.styleId,
-        config: state.config,
-        gradient: state.gradient,
-        effects: state.effects,
-        selectedEffectId: state.selectedEffectId,
-        sceneElements: state.sceneElements,
-        savedVariants: state.savedVariants,
+        projectName: state.projectName,
+        effectType: state.effectType,
+        controls: state.controls,
+        modifiers: state.modifiers,
+        viewport: state.viewport,
+        customFragmentSource: state.customFragmentSource,
+        exportSettings: state.exportSettings,
+        saved: state.saved,
       }),
-    }
-  )
+    },
+  ),
 );

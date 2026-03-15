@@ -252,9 +252,106 @@ void main() {
 }
 `;
 
+export const MESH_FRAGMENT_SHADER = `
+precision mediump float;
+
+uniform vec2 u_resolution;
+uniform float u_time;
+uniform vec2 u_mouse;
+uniform vec3 u_colorA;
+uniform vec3 u_colorB;
+uniform vec3 u_colorC;
+uniform float u_speed;
+uniform float u_scale;
+uniform float u_noiseAmount;
+uniform float u_glow;
+uniform float u_grain;
+uniform float u_spread;
+uniform float u_direction;
+uniform float u_opacity;
+uniform float u_mouseStrength;
+
+varying vec2 v_uv;
+
+float hash(vec2 p) {
+  return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+}
+
+void main() {
+  vec2 uv = v_uv;
+  vec2 p = uv - 0.5;
+  p.x *= u_resolution.x / u_resolution.y;
+  float t = u_time * (0.35 + u_speed * 0.9);
+
+  float gx = abs(fract((p.x + t * 0.08) * (8.0 + u_scale * 4.0)) - 0.5);
+  float gy = abs(fract((p.y - t * 0.1) * (8.0 + u_scale * 4.0)) - 0.5);
+  float mesh = smoothstep(0.28, 0.02, min(gx, gy));
+
+  float radial = smoothstep(1.15, 0.05, length(p));
+  float noise = (hash(gl_FragCoord.xy + t * 47.0) - 0.5) * u_grain;
+
+  vec3 base = mix(u_colorA, u_colorB, radial);
+  base = mix(base, u_colorC, mesh * (0.35 + u_glow * 0.4));
+  vec3 color = base + base * mesh * (0.2 + u_glow * 0.45) + noise;
+
+  gl_FragColor = vec4(clamp(color, 0.0, 1.0), clamp(u_opacity, 0.0, 1.0));
+}
+`;
+
+export const HOLO_FRAGMENT_SHADER = `
+precision mediump float;
+
+uniform vec2 u_resolution;
+uniform float u_time;
+uniform vec2 u_mouse;
+uniform vec3 u_colorA;
+uniform vec3 u_colorB;
+uniform vec3 u_colorC;
+uniform float u_speed;
+uniform float u_scale;
+uniform float u_noiseAmount;
+uniform float u_glow;
+uniform float u_grain;
+uniform float u_spread;
+uniform float u_direction;
+uniform float u_opacity;
+uniform float u_mouseStrength;
+
+varying vec2 v_uv;
+
+float hash(vec2 p) {
+  return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+}
+
+void main() {
+  vec2 uv = v_uv;
+  vec2 p = uv - 0.5;
+  p.x *= u_resolution.x / u_resolution.y;
+  float t = u_time * (0.6 + u_speed);
+
+  float bands = sin((p.x * (15.0 + u_scale * 4.0)) + t * 2.0) * 0.5 + 0.5;
+  float wave = cos((p.y * (11.0 + u_scale * 2.0)) - t * 1.4) * 0.5 + 0.5;
+  float prism = smoothstep(0.1, 0.9, bands * 0.65 + wave * 0.35);
+
+  vec3 color = mix(u_colorA, u_colorB, prism);
+  color = mix(color, u_colorC, smoothstep(0.45, 1.0, wave + bands * 0.2));
+
+  float fringe = sin((p.x + p.y) * 40.0 + t * 3.0) * 0.015;
+  color += vec3(fringe, -fringe * 0.4, fringe * 0.7);
+
+  float vignette = smoothstep(1.2, 0.12, length(p));
+  float grain = (hash(gl_FragCoord.xy + t * 77.0) - 0.5) * u_grain;
+  color = color * vignette + grain;
+
+  gl_FragColor = vec4(clamp(color, 0.0, 1.0), clamp(u_opacity, 0.0, 1.0));
+}
+`;
+
 export function getFragmentShaderByStyle(styleId: ShaderStyleId) {
   if (styleId === "plasma") return PLASMA_FRAGMENT_SHADER;
   if (styleId === "aurora") return AURORA_FRAGMENT_SHADER;
   if (styleId === "crt") return CRT_FRAGMENT_SHADER;
+  if (styleId === "mesh") return MESH_FRAGMENT_SHADER;
+  if (styleId === "holo") return HOLO_FRAGMENT_SHADER;
   return FLOW_FRAGMENT_SHADER;
 }

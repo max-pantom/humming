@@ -70,11 +70,43 @@ const crtPreset: RainbowConfig = {
   mouseStrength: 0.08,
 };
 
+const meshPreset: RainbowConfig = {
+  paletteA: "#9b5cff",
+  paletteB: "#37d7ff",
+  paletteC: "#f8f7ff",
+  speed: 0.38,
+  scale: 2.7,
+  noiseAmount: 0.52,
+  glow: 1.05,
+  grain: 0.022,
+  spread: 0.58,
+  direction: 0.26,
+  opacity: 1,
+  mouseStrength: 0.12,
+};
+
+const holoPreset: RainbowConfig = {
+  paletteA: "#00ffd0",
+  paletteB: "#5da8ff",
+  paletteC: "#ff5ec7",
+  speed: 0.46,
+  scale: 2.15,
+  noiseAmount: 0.44,
+  glow: 1.22,
+  grain: 0.03,
+  spread: 0.64,
+  direction: -0.14,
+  opacity: 1,
+  mouseStrength: 0.1,
+};
+
 export const stylePresets: Record<ShaderStyleId, RainbowConfig> = {
   flow: flowPreset,
   plasma: plasmaPreset,
   aurora: auroraPreset,
   crt: crtPreset,
+  mesh: meshPreset,
+  holo: holoPreset,
 };
 
 export const styleLabels: Record<ShaderStyleId, string> = {
@@ -82,6 +114,8 @@ export const styleLabels: Record<ShaderStyleId, string> = {
   plasma: "Plasma",
   aurora: "Aurora",
   crt: "CRT",
+  mesh: "Mesh",
+  holo: "Holo",
 };
 
 export const surfacePresets: SurfacePreset[] = [
@@ -172,7 +206,7 @@ export function configForStyle(styleId: ShaderStyleId): RainbowConfig {
 }
 
 export function normalizeStyleId(value: unknown): ShaderStyleId {
-  if (value === "flow" || value === "plasma" || value === "aurora" || value === "crt") return value;
+  if (value === "flow" || value === "plasma" || value === "aurora" || value === "crt" || value === "mesh" || value === "holo") return value;
   if (value === "rainbow") return "flow";
   if (value === "sunset") return "plasma";
   if (value === "ice") return "aurora";
