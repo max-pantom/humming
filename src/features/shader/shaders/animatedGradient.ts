@@ -22,6 +22,11 @@ uniform vec3 u_color3;
 
 uniform float u_speed;
 uniform float u_scale;
+uniform float u_flow;
+uniform float u_softness;
+uniform float u_contrast;
+uniform float u_direction;
+uniform float u_opacity;
 uniform float u_warpStrength;
 uniform float u_grainAmount;
 uniform float u_ditherAmount;
@@ -56,6 +61,7 @@ vec2 warpUV(vec2 uv, float strength) {
 
 vec3 animatedGradient(vec2 uv) {
   float t = u_time * u_speed;
+  uv += vec2(cos(u_direction), sin(u_direction)) * u_flow * 0.08;
 
   float g1 = sin((uv.x + t * 0.25) * 6.28318) * 0.5 + 0.5;
   float g2 = sin((uv.y + t * 0.18) * 6.28318 + 1.2) * 0.5 + 0.5;
@@ -67,6 +73,8 @@ vec3 animatedGradient(vec2 uv) {
   color += u_color3 * g3;
 
   color /= (g1 + g2 + g3 + 0.0001);
+  vec3 avg = vec3((color.r + color.g + color.b) / 3.0);
+  color = mix(avg, color, 0.4 + u_softness * 0.6);
   return color;
 }
 
@@ -113,8 +121,9 @@ void main() {
   color = applyGrain(color, uv, u_grainAmount);
   color = applyBayerDither(color, gl_FragCoord.xy, u_ditherAmount);
 
+  color = (color - 0.5) * (1.0 + u_contrast) + 0.5;
   color = clamp(color, 0.0, 1.0);
 
-  gl_FragColor = vec4(color, 1.0);
+  gl_FragColor = vec4(color, u_opacity);
 }
 `;

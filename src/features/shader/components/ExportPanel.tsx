@@ -19,6 +19,15 @@ function reactSnippet(controls: GradientEffectControls, modifiers: ModifierToggl
   color3="${controls.color3}"
   speed={${controls.speed}}
   scale={${controls.scale}}
+  flow={${controls.flow}}
+  softness={${controls.softness}}
+  contrast={${controls.contrast}}
+  direction={${controls.direction}}
+  intensity={${controls.intensity}}
+  spread={${controls.spread}}
+  decay={${controls.decay}}
+  opacity={${controls.opacity}}
+  mouseStrength={${controls.mouseStrength}}
   warpStrength={${modifiers.warp ? controls.warpStrength : 0}}
   grainAmount={${modifiers.grain ? controls.grainAmount : 0}}
   ditherAmount={${modifiers.bayerDither ? controls.ditherAmount : 0}}
@@ -37,6 +46,15 @@ function htmlSnippet(controls: GradientEffectControls, modifiers: ModifierToggle
     color3: "${controls.color3}",
     speed: ${controls.speed},
     scale: ${controls.scale},
+    flow: ${controls.flow},
+    softness: ${controls.softness},
+    contrast: ${controls.contrast},
+    direction: ${controls.direction},
+    intensity: ${controls.intensity},
+    spread: ${controls.spread},
+    decay: ${controls.decay},
+    opacity: ${controls.opacity},
+    mouseStrength: ${controls.mouseStrength},
     warpStrength: ${modifiers.warp ? controls.warpStrength : 0},
     grainAmount: ${modifiers.grain ? controls.grainAmount : 0},
     ditherAmount: ${modifiers.bayerDither ? controls.ditherAmount : 0},

@@ -14,7 +14,7 @@ function clamp(value: number, min: number, max: number) {
 }
 
 export function PerformancePanel({ controls, modifiers, exportSettings, onPatchExport }: Props) {
-  const effectCost = 18 + controls.scale * 6 + controls.speed * 10;
+  const effectCost = 18 + controls.scale * 6 + controls.speed * 10 + controls.softness * 6 + controls.contrast * 5;
   const modifierCost = (modifiers.warp ? controls.warpStrength * 50 : 0) + (modifiers.grain ? controls.grainAmount * 220 : 0) + (modifiers.bayerDither ? controls.ditherAmount * 180 : 0);
   const safetyAdjust = (exportSettings.mobileSafeMode ? -8 : 0) + (exportSettings.pauseOffscreen ? -4 : 0);
   const gpuCost = clamp(Math.round(effectCost + modifierCost + safetyAdjust), 6, 98);

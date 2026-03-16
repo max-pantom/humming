@@ -42,6 +42,16 @@ export default function ShaderToolV0() {
   } = useShaderStore();
   const [shaderError, setShaderError] = useState<string | null>(null);
 
+  const flow = typeof controls.flow === "number" ? controls.flow : 0.5;
+  const softness = typeof controls.softness === "number" ? controls.softness : 0.8;
+  const contrast = typeof controls.contrast === "number" ? controls.contrast : 0.15;
+  const direction = typeof controls.direction === "number" ? controls.direction : 0;
+  const intensity = typeof controls.intensity === "number" ? controls.intensity : 0.45;
+  const spread = typeof controls.spread === "number" ? controls.spread : 0.6;
+  const decay = typeof controls.decay === "number" ? controls.decay : 0.92;
+  const opacity = typeof controls.opacity === "number" ? controls.opacity : 1;
+  const mouseStrength = typeof controls.mouseStrength === "number" ? controls.mouseStrength : 0.12;
+
   const takeSnapshot = () => {
     const canvas = document.getElementById("web-surface-canvas") as HTMLCanvasElement | null;
     if (!canvas) return;
@@ -121,7 +131,53 @@ export default function ShaderToolV0() {
               <span>Scale {controls.scale.toFixed(2)}</span>
               <input type="range" min={0.5} max={3.5} step={0.01} value={controls.scale} onChange={(event) => patchControls({ scale: Number.parseFloat(event.target.value) })} />
             </label>
+            <label className="grid gap-1 text-xs text-white/65">
+              <span>Flow {flow.toFixed(2)}</span>
+              <input type="range" min={0} max={1} step={0.01} value={flow} onChange={(event) => patchControls({ flow: Number.parseFloat(event.target.value) })} />
+            </label>
+            <label className="grid gap-1 text-xs text-white/65">
+              <span>Direction {direction.toFixed(2)}</span>
+              <input type="range" min={-3.14} max={3.14} step={0.01} value={direction} onChange={(event) => patchControls({ direction: Number.parseFloat(event.target.value) })} />
+            </label>
           </section>
+
+          <section className="grid gap-2 rounded-md border border-white/10 bg-black/25 p-3">
+            <p className="text-xs text-white/70">Look</p>
+            <label className="grid gap-1 text-xs text-white/65">
+              <span>Softness {softness.toFixed(2)}</span>
+              <input type="range" min={0} max={1} step={0.01} value={softness} onChange={(event) => patchControls({ softness: Number.parseFloat(event.target.value) })} />
+            </label>
+            <label className="grid gap-1 text-xs text-white/65">
+              <span>Contrast {contrast.toFixed(2)}</span>
+              <input type="range" min={0} max={1} step={0.01} value={contrast} onChange={(event) => patchControls({ contrast: Number.parseFloat(event.target.value) })} />
+            </label>
+            <label className="grid gap-1 text-xs text-white/65">
+              <span>Opacity {opacity.toFixed(2)}</span>
+              <input type="range" min={0.1} max={1} step={0.01} value={opacity} onChange={(event) => patchControls({ opacity: Number.parseFloat(event.target.value) })} />
+            </label>
+            <label className="grid gap-1 text-xs text-white/65">
+              <span>Mouse {mouseStrength.toFixed(2)}</span>
+              <input type="range" min={0} max={1} step={0.01} value={mouseStrength} onChange={(event) => patchControls({ mouseStrength: Number.parseFloat(event.target.value) })} />
+            </label>
+          </section>
+
+          {effectType !== "animatedGradient" ? (
+            <section className="grid gap-2 rounded-md border border-white/10 bg-black/25 p-3">
+              <p className="text-xs text-white/70">Effect</p>
+              <label className="grid gap-1 text-xs text-white/65">
+                <span>Intensity {intensity.toFixed(2)}</span>
+                <input type="range" min={0} max={1.5} step={0.01} value={intensity} onChange={(event) => patchControls({ intensity: Number.parseFloat(event.target.value) })} />
+              </label>
+              <label className="grid gap-1 text-xs text-white/65">
+                <span>Spread {spread.toFixed(2)}</span>
+                <input type="range" min={0.1} max={1} step={0.01} value={spread} onChange={(event) => patchControls({ spread: Number.parseFloat(event.target.value) })} />
+              </label>
+              <label className="grid gap-1 text-xs text-white/65">
+                <span>Decay {decay.toFixed(2)}</span>
+                <input type="range" min={0.6} max={1} step={0.01} value={decay} onChange={(event) => patchControls({ decay: Number.parseFloat(event.target.value) })} />
+              </label>
+            </section>
+          ) : null}
 
           {effectType === "custom" ? (
             <section className="grid gap-2 rounded-md border border-white/10 bg-black/25 p-3">

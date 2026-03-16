@@ -82,6 +82,11 @@ export function ShaderCanvas({ effectType, controls, modifiers, viewport, custom
           color3: gl.getUniformLocation(program, "u_color3"),
           speed: gl.getUniformLocation(program, "u_speed"),
           scale: gl.getUniformLocation(program, "u_scale"),
+          flow: gl.getUniformLocation(program, "u_flow"),
+          softness: gl.getUniformLocation(program, "u_softness"),
+          contrast: gl.getUniformLocation(program, "u_contrast"),
+          direction: gl.getUniformLocation(program, "u_direction"),
+          opacity: gl.getUniformLocation(program, "u_opacity"),
           warpStrength: gl.getUniformLocation(program, "u_warpStrength"),
           grainAmount: gl.getUniformLocation(program, "u_grainAmount"),
           ditherAmount: gl.getUniformLocation(program, "u_ditherAmount"),
@@ -136,6 +141,11 @@ export function ShaderCanvas({ effectType, controls, modifiers, viewport, custom
         gl.uniform3fv(u.color3 ?? null, new Float32Array(hexToRgb(c.color3)));
         gl.uniform1f(u.speed ?? null, c.speed);
         gl.uniform1f(u.scale ?? null, c.scale);
+        gl.uniform1f(u.flow ?? null, c.flow);
+        gl.uniform1f(u.softness ?? null, c.softness);
+        gl.uniform1f(u.contrast ?? null, c.contrast);
+        gl.uniform1f(u.direction ?? null, c.direction);
+        gl.uniform1f(u.opacity ?? null, c.opacity);
         gl.uniform1f(u.warpStrength ?? null, m.warp ? c.warpStrength : 0);
         gl.uniform1f(u.grainAmount ?? null, m.grain ? c.grainAmount : 0);
         gl.uniform1f(u.ditherAmount ?? null, m.bayerDither ? c.ditherAmount : 0);
@@ -148,12 +158,12 @@ export function ShaderCanvas({ effectType, controls, modifiers, viewport, custom
         gl.uniform1f(u.speed ?? null, c.speed);
         gl.uniform1f(u.scale ?? null, c.scale);
         gl.uniform1f(u.noiseAmount ?? null, 0.35 + (m.bayerDither ? c.ditherAmount * 1.8 : 0));
-        gl.uniform1f(u.glow ?? null, effectType === "godRays" ? 1.15 : effectType === "liquidBlur" ? 0.95 : 0.65);
+        gl.uniform1f(u.glow ?? null, effectType === "godRays" ? c.intensity * 2.0 : effectType === "liquidBlur" ? 0.7 + c.softness * 0.6 : 0.45 + c.intensity * 0.5);
         gl.uniform1f(u.grain ?? null, m.grain ? c.grainAmount : 0.01);
-        gl.uniform1f(u.spread ?? null, 0.45 + (m.warp ? c.warpStrength * 0.9 : 0));
-        gl.uniform1f(u.direction ?? null, m.warp ? c.warpStrength * 2.6 : 0.2);
-        gl.uniform1f(u.opacity ?? null, 1);
-        gl.uniform1f(u.mouseStrength ?? null, effectType === "godRays" ? 0.16 : 0.08);
+        gl.uniform1f(u.spread ?? null, c.spread + (m.warp ? c.warpStrength * 0.9 : 0));
+        gl.uniform1f(u.direction ?? null, c.direction + (m.warp ? c.warpStrength * 2.6 : 0.2));
+        gl.uniform1f(u.opacity ?? null, c.opacity);
+        gl.uniform1f(u.mouseStrength ?? null, c.mouseStrength);
       }
 
       gl.drawArrays(gl.TRIANGLES, 0, 6);

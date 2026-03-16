@@ -142,6 +142,15 @@ export type GradientEffectControls = {
   color3: string;
   speed: number;
   scale: number;
+  flow: number;
+  softness: number;
+  contrast: number;
+  direction: number;
+  intensity: number;
+  spread: number;
+  decay: number;
+  opacity: number;
+  mouseStrength: number;
   warpStrength: number;
   grainAmount: number;
   ditherAmount: number;

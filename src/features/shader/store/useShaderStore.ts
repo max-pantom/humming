@@ -78,6 +78,31 @@ type Store = {
   reset: () => void;
 };
 
+function normalizeControls(input: unknown): GradientEffectControls {
+  const raw = input && typeof input === "object" ? (input as Partial<GradientEffectControls>) : {};
+  return {
+    ...defaults.controls,
+    ...raw,
+    color1: typeof raw.color1 === "string" ? raw.color1 : defaults.controls.color1,
+    color2: typeof raw.color2 === "string" ? raw.color2 : defaults.controls.color2,
+    color3: typeof raw.color3 === "string" ? raw.color3 : defaults.controls.color3,
+    speed: typeof raw.speed === "number" ? raw.speed : defaults.controls.speed,
+    scale: typeof raw.scale === "number" ? raw.scale : defaults.controls.scale,
+    flow: typeof raw.flow === "number" ? raw.flow : defaults.controls.flow,
+    softness: typeof raw.softness === "number" ? raw.softness : defaults.controls.softness,
+    contrast: typeof raw.contrast === "number" ? raw.contrast : defaults.controls.contrast,
+    direction: typeof raw.direction === "number" ? raw.direction : defaults.controls.direction,
+    intensity: typeof raw.intensity === "number" ? raw.intensity : defaults.controls.intensity,
+    spread: typeof raw.spread === "number" ? raw.spread : defaults.controls.spread,
+    decay: typeof raw.decay === "number" ? raw.decay : defaults.controls.decay,
+    opacity: typeof raw.opacity === "number" ? raw.opacity : defaults.controls.opacity,
+    mouseStrength: typeof raw.mouseStrength === "number" ? raw.mouseStrength : defaults.controls.mouseStrength,
+    warpStrength: typeof raw.warpStrength === "number" ? raw.warpStrength : defaults.controls.warpStrength,
+    grainAmount: typeof raw.grainAmount === "number" ? raw.grainAmount : defaults.controls.grainAmount,
+    ditherAmount: typeof raw.ditherAmount === "number" ? raw.ditherAmount : defaults.controls.ditherAmount,
+  };
+}
+
 const defaults = {
   projectName: "Untitled Web Surface",
   effectType: "animatedGradient" as MainEffectType,
@@ -87,6 +112,15 @@ const defaults = {
     color3: "#4de2c5",
     speed: 0.4,
     scale: 2,
+    flow: 0.5,
+    softness: 0.8,
+    contrast: 0.15,
+    direction: 0,
+    intensity: 0.45,
+    spread: 0.6,
+    decay: 0.92,
+    opacity: 1,
+    mouseStrength: 0.12,
     warpStrength: 0.12,
     grainAmount: 0.04,
     ditherAmount: 0.06,
@@ -112,7 +146,7 @@ export const useShaderStore = create<Store>()(
       saved: [],
       setProjectName: (name) => set({ projectName: name }),
       setEffectType: (effectType) => set({ effectType }),
-      patchControls: (next) => set((state) => ({ controls: { ...state.controls, ...next } })),
+      patchControls: (next) => set((state) => ({ controls: normalizeControls({ ...state.controls, ...next }) })),
       toggleModifier: (key, enabled) => set((state) => ({ modifiers: { ...state.modifiers, [key]: enabled } })),
       setViewport: (mode) => set({ viewport: mode }),
       setCustomFragmentSource: (source) => set({ customFragmentSource: source }),
@@ -124,7 +158,7 @@ export const useShaderStore = create<Store>()(
           name: label,
           createdAt: Date.now(),
           effectType: get().effectType,
-          controls: get().controls,
+          controls: normalizeControls(get().controls),
           modifiers: get().modifiers,
           viewport: get().viewport,
           customFragmentSource: get().customFragmentSource,
@@ -138,7 +172,7 @@ export const useShaderStore = create<Store>()(
         set({
           projectName: item.name,
           effectType: item.effectType,
-          controls: item.controls,
+          controls: normalizeControls(item.controls),
           modifiers: item.modifiers,
           viewport: item.viewport,
           customFragmentSource: item.customFragmentSource || DEFAULT_CUSTOM_FRAGMENT,
@@ -160,6 +194,7 @@ export const useShaderStore = create<Store>()(
         return {
           ...state,
           effectType,
+          controls: normalizeControls(state.controls),
           customFragmentSource: typeof state.customFragmentSource === "string" ? state.customFragmentSource : DEFAULT_CUSTOM_FRAGMENT,
         };
       },
